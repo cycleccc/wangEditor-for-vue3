@@ -1,21 +1,23 @@
 # wangEditor for Vue
 
-[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/facebook/react/blob/main/LICENSE) [![npm](https://img.shields.io/npm/v/@wangeditor/editor-for-vue.svg)](https://www.npmjs.com/package/@wangeditor/editor-for-vue/v/next) [![build status](https://github.com/wangeditor-team/wangEditor-for-vue3/actions/workflows/npm-publish.yml/badge.svg?branch=main)](https://github.com/wangeditor-team/wangEditor-for-vue3/actions)
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE) [![npm](https://img.shields.io/npm/v/@wangeditor-next/editor-for-vue.svg)](https://www.npmjs.com/package/@wangeditor-next/editor-for-vue) [![build status](https://github.com/wangeditor-next/wangEditor-for-vue3/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/wangeditor-next/wangEditor-for-vue3/actions/workflows/build.yml)
 
 [中文文档](./README.md)
 
 ## Introduction
 
-An out-of-the-box [Vue3 component](https://www.wangeditor.com/v5/for-frame.html#vue3)
-based on the [wangEditor 5](https://www.wangeditor.com/v5/for-frame.html#vue3)
+An out-of-the-box
+[Vue 3 component](https://wangeditor-next.github.io/docs/en/guide/for-frame.html#vue3) for
+[wangEditor-next](https://github.com/wangeditor-next/wangEditor-next). The current wrapper supports
+`@wangeditor-next/editor` v5 and v6.
 
 ## Installation
 
 ```shell
 yarn add @wangeditor-next/editor
-yarn add @wangeditor-next/editor-for-vue@next
+yarn add @wangeditor-next/editor-for-vue
 ```
 
 ## Usage
 
-[Usage doc](https://www.wangeditor.com/en/v5/for-frame.html#vue3)
+[Vue/React usage documentation](https://wangeditor-next.github.io/docs/en/guide/for-frame.html#vue3)

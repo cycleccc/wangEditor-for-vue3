@@ -9,14 +9,18 @@ jobs:
   publish-npm:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v1
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
         with:
-          node-version: 14
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
           registry-url: https://registry.npmjs.org/
-      - run: yarn install
-      # - run: yarn test
-      - run: yarn build
-      - run: npm publish  --tag next --access=public
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # - run: pnpm test
+      - run: pnpm build
+      - run: pnpm publish --access=public
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
