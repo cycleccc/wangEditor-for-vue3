@@ -2,7 +2,7 @@ module.exports = {
   git: {
     tagName: 'v${version}',
     commitMessage: 'release: v${version}',
-    requireCleanWorkingDir: false,
+    requireCleanWorkingDir: true,
     requireBranch: 'main',
   },
   hooks: {

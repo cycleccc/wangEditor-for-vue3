@@ -1,15 +1,23 @@
-name: npm publish
+name: Publish npm package
 
 on:
   push:
     tags:
       - 'v*.*.*'
 
+permissions:
+  contents: write
+
 jobs:
   publish-npm:
     runs-on: ubuntu-latest
+    env:
+      RELEASE_ARTIFACTS: ${{ runner.temp }}/editor-for-vue-release-artifacts
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 9.15.0
@@ -18,9 +26,88 @@ jobs:
           node-version: 20.19.0
           registry-url: https://registry.npmjs.org/
           cache: pnpm
+      - name: Validate release source
+        run: |
+          mkdir -p "$RELEASE_ARTIFACTS"
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          node .github/scripts/release-provenance.js validate-release \
+            --tag "$GITHUB_REF_NAME" \
+            --package package.json \
+            --main-ref origin/main \
+            --output "$RELEASE_ARTIFACTS/release-context.json"
       - run: pnpm install --frozen-lockfile
-      # - run: pnpm test
+      - run: pnpm test -- --runInBand
       - run: pnpm build
-      - run: pnpm publish --access=public
+      - name: Inspect npm version
+        id: npm-version
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_name="$(node -p 'require("./package.json").name')"
+          version="$(node -p 'require("./package.json").version')"
+
+          if npm view "${package_name}@${version}" --json --registry=https://registry.npmjs.org \
+            > "$RELEASE_ARTIFACTS/npm-metadata.json" 2> "$RELEASE_ARTIFACTS/npm-view.stderr"; then
+            node .github/scripts/release-provenance.js validate-published-package \
+              --release-context "$RELEASE_ARTIFACTS/release-context.json" \
+              --npm-metadata "$RELEASE_ARTIFACTS/npm-metadata.json"
+            echo 'exists=true' >> "$GITHUB_OUTPUT"
+          elif grep -Eq 'E404|404 Not Found' "$RELEASE_ARTIFACTS/npm-view.stderr"; then
+            echo 'exists=false' >> "$GITHUB_OUTPUT"
+          else
+            sed -n '1,200p' "$RELEASE_ARTIFACTS/npm-view.stderr" >&2
+            exit 1
+          fi
+      - name: Publish missing npm version
+        if: steps.npm-version.outputs.exists == 'false'
+        run: pnpm publish --access=public
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+      - name: Verify published npm metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_name="$(node -p 'require("./package.json").name')"
+          version="$(node -p 'require("./package.json").version')"
+          npm view "${package_name}@${version}" --json --registry=https://registry.npmjs.org \
+            > "$RELEASE_ARTIFACTS/npm-metadata.json"
+          node .github/scripts/release-provenance.js validate-published-package \
+            --release-context "$RELEASE_ARTIFACTS/release-context.json" \
+            --npm-metadata "$RELEASE_ARTIFACTS/npm-metadata.json"
+      - name: Download and verify npm tarball
+        shell: bash
+        run: |
+          set -euo pipefail
+          tarball_url="$(node .github/scripts/release-provenance.js tarball-url \
+            --release-context "$RELEASE_ARTIFACTS/release-context.json" \
+            --npm-metadata "$RELEASE_ARTIFACTS/npm-metadata.json")"
+          tarball_name="$(basename "${tarball_url%%\?*}")"
+          tarball_file="$RELEASE_ARTIFACTS/$tarball_name"
+
+          curl --fail --location --retry 3 --output "$tarball_file" "$tarball_url"
+          node .github/scripts/release-provenance.js create-provenance \
+            --release-context "$RELEASE_ARTIFACTS/release-context.json" \
+            --npm-metadata "$RELEASE_ARTIFACTS/npm-metadata.json" \
+            --tarball "$tarball_file" \
+            --source-repository "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --output "$RELEASE_ARTIFACTS/release-provenance.json" \
+            --notes-output "$RELEASE_ARTIFACTS/release-notes.md"
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file "$RELEASE_ARTIFACTS/release-notes.md"
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --target "$GITHUB_SHA" \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file "$RELEASE_ARTIFACTS/release-notes.md"
+          fi
+
+          gh release upload "$GITHUB_REF_NAME" \
+            "$RELEASE_ARTIFACTS"/*.tgz \
+            "$RELEASE_ARTIFACTS/release-provenance.json" \
+            --clobber
